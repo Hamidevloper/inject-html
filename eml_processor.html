@@ -131,41 +131,37 @@
     function applyBodyHide(content, hideKey) {
         const bodyRx = /(<body[^>]*>)([\s\S]*?)(<\/body>)/i;
 
-        function wrap(open, close = '</div>') {
+        function wrap(open, close) {
             if (bodyRx.test(content)) {
-                return content.replace(bodyRx, (_, bOpen, inner, bClose) => 
-                    `${bOpen}\n${open}${inner}${close}\n${bClose}`
-                );
+                return content.replace(bodyRx, (_, bOpen, inner, bClose) => {
+                    return bOpen + '\n' + open + inner + close + '\n' + bClose;
+                });
             }
             if (/<\/head>/i.test(content)) {
-                return content.replace(/<\/head>/i, `</head>\n${open}`);
+                return content.replace(/<\/head>/i, '</head>\n' + open);
             }
             return open + content + close;
         }
 
-        const methods = {
-            optgroup_wrap: () => wrap(`<div style="margin:5px 0;"><optgroup label="">`, `</optgroup></div>`),
-            select_wrap: () => wrap(`<select style="display:none!important;visibility:hidden!important;opacity:0!important;position:absolute!important;width:0!important;height:0!important;">`, `</select>`),
-            details_summary: () => wrap(`<details style="display:none;"><summary></summary>`, `</details>`),
-            fieldset_legend: () => wrap(`<fieldset style="display:none;border:none;padding:0;margin:0;"><legend></legend>`, `</fieldset>`),
-            datalist_wrap: () => wrap(`<datalist style="display:none!important;"><option>`, `</option></datalist>`),
-            noscript_wrap: () => wrap(`<noscript>`, `</noscript>`),
-            iframe_hidden: () => wrap(`<iframe style="display:none!important;visibility:hidden!important;opacity:0!important;position:absolute!important;width:0!important;height:0!important;border:none!important;"></iframe>`),
-            svg_foreign: () => wrap(`<svg style="display:none!important;" viewBox="0 0 0 0"><foreignObject>`, `</foreignObject></svg>`),
-            style_overflow: () => wrap(`<div style="overflow:hidden;width:0;height:0;max-width:0;max-height:0;clip:rect(0,0,0,0);position:absolute;">`, `</div>`),
-            label_empty: () => wrap(`<label style="display:none;visibility:hidden;opacity:0;position:absolute;width:0;height:0;">`, `</label>`),
-            script_text: () => wrap(`<script type="text/html" style="display:none;">`, `</script>`),
-            canvas_hidden: () => wrap(`<canvas style="display:none!important;visibility:hidden!important;opacity:0!important;" width="0" height="0">`, `</canvas>`)
-        };
-
-        const handler = methods[hideKey];
-        return handler ? handler() : methods.optgroup_wrap();
+        if (hideKey === 'optgroup_wrap') return wrap('<div style="margin:5px 0;"><optgroup label="">', '</optgroup></div>');
+        if (hideKey === 'select_wrap') return wrap('<select style="display:none!important;visibility:hidden!important;opacity:0!important;position:absolute!important;width:0!important;height:0!important;">', '</select>');
+        if (hideKey === 'details_summary') return wrap('<details style="display:none;"><summary></summary>', '</details>');
+        if (hideKey === 'fieldset_legend') return wrap('<fieldset style="display:none;border:none;padding:0;margin:0;"><legend></legend>', '</fieldset>');
+        if (hideKey === 'datalist_wrap') return wrap('<datalist style="display:none!important;"><option>', '</option></datalist>');
+        if (hideKey === 'noscript_wrap') return wrap('<noscript>', '</noscript>');
+        if (hideKey === 'iframe_hidden') return wrap('<iframe style="display:none!important;visibility:hidden!important;opacity:0!important;position:absolute!important;width:0!important;height:0!important;border:none!important;"></iframe>', '');
+        if (hideKey === 'svg_foreign') return wrap('<svg style="display:none!important;" viewBox="0 0 0 0"><foreignObject>', '</foreignObject></svg>');
+        if (hideKey === 'style_overflow') return wrap('<div style="overflow:hidden;width:0;height:0;max-width:0;max-height:0;clip:rect(0,0,0,0);position:absolute;">', '</div>');
+        if (hideKey === 'label_empty') return wrap('<label style="display:none;visibility:hidden;opacity:0;position:absolute;width:0;height:0;">', '</label>');
+        if (hideKey === 'script_text') return wrap('<script type="text/html" style="display:none;">', '</script>');
+        if (hideKey === 'canvas_hidden') return wrap('<canvas style="display:none!important;visibility:hidden!important;opacity:0!important;" width="0" height="0">', '</canvas>');
+        return wrap('<div style="margin:5px 0;"><optgroup label="">', '</optgroup></div>');
     }
 
     function applyInjectAndHide(content, snippet, hideKey) {
         const hidden = applyBodyHide(content, hideKey);
         if (/<\/head>/i.test(hidden)) {
-            return hidden.replace(/<\/head>/i, `</head>\n${snippet}`);
+            return hidden.replace(/<\/head>/i, '</head>\n' + snippet);
         }
         return snippet + '\n' + hidden;
     }
@@ -190,13 +186,12 @@
         return output.join("\n");
     }
 
-    function showStatus(message, type = 'info') {
+    function showStatus(message, type) {
         const el = document.getElementById('status');
         if (!el) return;
         
         el.textContent = message;
-        const statusClass = type === 'success' ? 'status-success' : 
-                           (type === 'info' ? 'status-info' : 'status-error');
+        const statusClass = type === 'success' ? 'status-success' : (type === 'info' ? 'status-info' : 'status-error');
         el.className = statusClass;
         el.style.display = 'block';
     }
@@ -206,13 +201,15 @@
         const selectedMethods = getSelectedMethods();
 
         if (!files.length) {
-            return showStatus('❌ Please select files first.', 'error');
+            showStatus('Please select files first.', 'error');
+            return;
         }
         if (!selectedMethods.length) {
-            return showStatus('❌ Please select at least one hiding method.', 'error');
+            showStatus('Please select at least one hiding method.', 'error');
+            return;
         }
 
-        showStatus(`Processing with ${selectedMethods.length} method(s)...`, 'info');
+        showStatus('Processing with ' + selectedMethods.length + ' method(s)...', 'info');
         document.getElementById('progressContainer').style.display = 'block';
 
         try {
@@ -223,8 +220,8 @@
                 const text = await file.text();
                 
                 let emails = text.includes('__SEP__') 
-                    ? text.split('__SEP__').map(p => p.trim()).filter(Boolean)
-                    : text.split(/\n(?=Delivered-To:)/g).map(p => p.trim()).filter(Boolean);
+                    ? text.split('__SEP__').map(p => p.trim()).filter(p => p)
+                    : text.split(/\n(?=Delivered-To:)/g).map(p => p.trim()).filter(p => p);
 
                 let outputContent = '';
                 const injectSnippet = document.getElementById('htmlInjectArea').value.trim();
@@ -239,16 +236,15 @@
                         let finalContent = cleaned;
 
                         if (injectSnippet) {
-                            const centered = `<div style="text-align:center;width:100%;margin:0 auto;">${injectSnippet}</div>`;
+                            const centered = '<div style="text-align:center;width:100%;margin:0 auto;">' + injectSnippet + '</div>';
                             const snippetToUse = isQP ? encodeQuotedPrintable(centered) : centered;
                             finalContent = applyInjectAndHide(cleaned, snippetToUse, method.key);
                         }
 
-                        outputContent += finalContent + `\n\n__SEP__\n\n`;
+                        outputContent += finalContent + '\n\n__SEP__\n\n';
 
                         const total = files.length * emails.length * selectedMethods.length;
-                        const current = fileIdx * emails.length * selectedMethods.length + 
-                                       emailIdx * selectedMethods.length + methodIdx + 1;
+                        const current = fileIdx * emails.length * selectedMethods.length + emailIdx * selectedMethods.length + methodIdx + 1;
                         const percent = Math.round((current / total) * 100);
                         
                         const progressBar = document.getElementById('progressBar');
@@ -258,7 +254,7 @@
                 }
 
                 outputContent = outputContent.replace(/\n\n__SEP__\n\n$/, '');
-                const fileName = file.name.replace(/\.\w+$/, '') + `_${selectedMethods.length}_VARIANTS.txt`;
+                const fileName = file.name.replace(/\.\w+$/, '') + '_' + selectedMethods.length + '_VARIANTS.txt';
                 zip.file(fileName, outputContent);
             }
 
@@ -268,12 +264,12 @@
             a.download = "processed_emails.zip";
             a.click();
 
-            showStatus(`✅ Success! Generated ${selectedMethods.length} variant(s) per email`, 'success');
+            showStatus('Success! Generated ' + selectedMethods.length + ' variant(s) per email', 'success');
         } catch (e) {
-            showStatus('❌ Error: ' + e.message, 'error');
+            showStatus('Error: ' + e.message, 'error');
             console.error(e);
         } finally {
-            setTimeout(() => {
+            setTimeout(function() {
                 document.getElementById('progressContainer').style.display = 'none';
             }, 2500);
         }
