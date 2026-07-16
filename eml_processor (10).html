@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EML Processor - Multiple Hiding Methods</title>
+    <style>
+        body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; max-width: 1200px; margin: 2rem auto; padding: 1rem; background: #f5f7fa; }
+        h1 { text-align: center; font-weight: 700; color: #1e293b; margin-bottom: 2rem; }
+        h2 { color: #1e293b; font-weight: 600; margin-top: 0; }
+        .section { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 2rem; }
+        input[type="file"] { margin: 1rem 0; padding: 0.5rem; width: 100%; border: 2px dashed #cbd5e1; border-radius: 8px; background: #f8fafc; box-sizing: border-box; }
+        .methods-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin: 2rem 0; }
+        .method-card { 
+            padding: 1rem; 
+            border: 1.5px solid #e2e8f0; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            transition: all 0.2s;
+        }
+        .method-card:hover { 
+            background: #f0f9ff; 
+            border-color: #3b82f6; 
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+        }
+        .method-card input[type="checkbox"] { 
+            margin-right: 0.5rem; 
+            cursor: pointer;
+        }
+        .method-card label { 
+            cursor: pointer; 
+            display: flex; 
+            align-items: center;
+            user-select: none;
+        }
+        .method-desc { 
+            font-size: 0.85rem; 
+            color: #64748b; 
+            margin-top: 0.5rem; 
+            padding-left: 1.5rem;
+        }
+        button { 
+            padding: 0.9rem; 
+            background: #3b82f6; 
+            color: white; 
+            font-weight: 600; 
+            width: 100%; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            margin-top: 1rem;
+            font-size: 1rem;
+        }
+        button:hover { background: #2563eb; }
+        button:active { transform: scale(0.98); }
+        #progressContainer { 
+            width: 100%; 
+            background: #e2e8f0; 
+            border-radius: 6px; 
+            margin-top: 1rem; 
+            height: 28px; 
+            display: none; 
+            overflow: hidden;
+        }
+        #progressBar { 
+            height: 100%; 
+            width: 0%; 
+            background: linear-gradient(90deg, #3b82f6, #2563eb); 
+            border-radius: 6px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            color: white; 
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: width 0.3s ease;
+        }
+        #status { 
+            display: none;
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+        .status-success { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+        .status-error { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+        .status-info { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+        textarea { 
+            width: 100%; 
+            box-sizing: border-box;
+            min-height: 120px; 
+            padding: 12px; 
+            border: 1.5px solid #cbd5e1; 
+            border-radius: 8px; 
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace; 
+            font-size: 0.9rem;
+            resize: vertical;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+    </style>
+</head>
+<body>
+
+<h1>📧 EML Processor - Multiple Hiding Methods</h1>
+
+<div class="section">
+    <h2>📋 Select Hiding Methods</h2>
+    <p style="color:#64748b; margin-bottom: 1.5rem;">Choose which hiding techniques to apply. All selected methods will generate separate variants.</p>
+    
+    <div class="methods-grid" id="methodsGrid"></div>
+</div>
+
+<div class="section">
+    <h2>📤 Upload & Configuration</h2>
+    
+    <label style="font-weight:600; display: block; margin-bottom: 0.5rem;">Select EML/TXT Files:</label>
+    <input id="fileInput" type="file" accept=".eml,.txt" multiple>
+    <div id="fileCount" style="margin:8px 0; color:#64748b;"></div>
+
+    <div style="margin:20px 0; padding:16px; border:2px solid #e2e8f0; border-radius:10px;">
+        <label style="font-weight:600; display:block; margin-bottom:8px;">💉 HTML to Inject (Visible)</label>
+        <textarea id="htmlInjectArea" placeholder="Paste your tracking pixel, script, banner, or custom HTML here..."></textarea>
+    </div>
+
+    <button type="button" onclick="processAll()">⚡ Process Files (Generate Variants)</button>
+    
+    <div id="progressContainer">
+        <div id="progressBar"></div>
+    </div>
+    <p id="status"></p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+<script type="text/javascript">
+(function() {
+    'use strict';
+
+    // All hiding methods with descriptions
+    const ALL_METHODS = [
+        {
+            key: "optgroup_wrap",
+            name: "Optgroup",
+            description: "Wraps in &lt;optgroup&gt; tags - basic form element hiding"
+        },
+        {
+            key: "select_wrap",
+            name: "Select Hidden",
+            description: "Hidden &lt;select&gt; with display:none & visibility:hidden"
+        },
+        {
+            key: "details_summary",
+            name: "Details/Summary",
+            description: "Hidden &lt;details&gt; tag - semantic element hiding"
+        },
+        {
+            key: "fieldset_legend",
+            name: "Fieldset",
+            description: "Wraps in &lt;fieldset&gt; with display:none styling"
+        },
+        {
+            key: "datalist_wrap",
+            name: "Datalist",
+            description: "Hidden &lt;datalist&gt; element for form inputs"
+        },
+        {
+            key: "noscript_wrap",
+            name: "Noscript",
+            description: "Wraps in &lt;noscript&gt; - executes when JS disabled"
+        },
+        {
+            key: "iframe_hidden",
+            name: "Hidden Iframe",
+            description: "Invisible &lt;iframe&gt; with multiple hiding properties"
+        },
+        {
+            key: "svg_foreign",
+            name: "SVG ForeignObject",
+            description: "Embeds in SVG &lt;foreignObject&gt; with display:none"
+        },
+        {
+            key: "style_overflow",
+            name: "Overflow Hidden",
+            description: "Div with overflow:hidden, width:0, height:0"
+        },
+        {
+            key: "label_empty",
+            name: "Label Wrap",
+            description: "&lt;label&gt; element styled as invisible"
+        },
+        {
+            key: "script_text",
+            name: "Script Text Tag",
+            description: "Hidden &lt;script type='text/html'&gt; container"
+        },
+        {
+            key: "canvas_hidden",
+            name: "Canvas Element",
+            description: "Hidden canvas with display:none and visibility:hidden"
+        }
+    ];
+
+    // Initialize method checkboxes
+    function initializeMethods() {
+        const grid = document.getElementById('methodsGrid');
+        if (!grid) return;
+        
+        grid.innerHTML = '';
+        
+        ALL_METHODS.forEach((method, idx) => {
+            const card = document.createElement('div');
+            card.className = 'method-card';
+            card.innerHTML = `
+                <label>
+                    <input type="checkbox" class="method-check" value="${method.key}" ${idx < 2 ? 'checked' : ''}>
+                    <strong>${method.name}</strong>
+                </label>
+                <div class="method-desc">${method.description}</div>
+            `;
+            grid.appendChild(card);
+        });
+    }
+
+    // File input listener
+    const fileInput = document.getElementById('fileInput');
+    if (fileInput) {
+        fileInput.addEventListener('change', function(e) {
+            const count = e.target.files.length;
+            document.getElementById('fileCount').textContent = count + ' file(s) selected';
+        });
+    }
+
+    // Get selected methods
+    function getSelectedMethods() {
+        return Array.from(document.querySelectorAll('.method-check:checked'))
+            .map(cb => ALL_METHODS.find(m => m.key === cb.value))
+            .filter(Boolean);
+    }
+
+    // Quoted-Printable encoding
+    function encodeQuotedPrintable(str) {
+        let encoded = '';
+        for (let i = 0; i < str.length; i++) {
+            const code = str.charCodeAt(i);
+            const ch = str[i];
+            if ((code >= 33 && code <= 126 && code !== 61) || ch === '\t') {
+                encoded += ch;
+            } else if (ch === ' ') {
+                encoded += ' ';
+            } else if (ch === '\r' || ch === '\n') {
+                encoded += ch;
+            } else {
+                encoded += '=' + code.toString(16).toUpperCase().padStart(2, '0');
+            }
+        }
+        return encoded;
+    }
+
+    // Apply hiding to body content
+    function applyBodyHide(content, hideKey) {
+        const bodyRx = /(<body[^>]*>)([\s\S]*?)(<\/body>)/i;
+
+        function wrap(open, close = '</div>') {
+            if (bodyRx.test(content)) {
+                return content.replace(bodyRx, (_, bOpen, inner, bClose) => 
+                    `${bOpen}\n${open}${inner}${close}\n${bClose}`
+                );
+            }
+            if (/<\/head>/i.test(content)) {
+                return content.replace(/<\/head>/i, `</head>\n${open}`);
+            }
+            return open + content + close;
+        }
+
+        const methods = {
+            optgroup_wrap: () => 
+                wrap(`<div style="margin:5px 0;"><optgroup label="">`, `</optgroup></div>`),
+            
+            select_wrap: () => 
+                wrap(`<select style="display:none!important;visibility:hidden!important;opacity:0!important;position:absolute!important;width:0!important;height:0!important;">`, `</select>`),
+            
+            details_summary: () => 
+                wrap(`<details style="display:none;"><summary></summary>`, `</details>`),
+            
+            fieldset_legend: () => 
+                wrap(`<fieldset style="display:none;border:none;padding:0;margin:0;"><legend></legend>`, `</fieldset>`),
+            
+            datalist_wrap: () => 
+                wrap(`<datalist style="display:none!important;"><option>`, `</option></datalist>`),
+            
+            noscript_wrap: () => 
+                wrap(`<noscript>`, `</noscript>`),
+            
+            iframe_hidden: () => 
+                wrap(`<iframe style="display:none!important;visibility:hidden!important;opacity:0!important;position:absolute!important;width:0!important;height:0!important;border:none!important;"></iframe>`),
+            
+            svg_foreign: () => 
+                wrap(`<svg style="display:none!important;" viewBox="0 0 0 0"><foreignObject>`, `</foreignObject></svg>`),
+            
+            style_overflow: () => 
+                wrap(`<div style="overflow:hidden;width:0;height:0;max-width:0;max-height:0;clip:rect(0,0,0,0);position:absolute;">`, `</div>`),
+            
+            label_empty: () => 
+                wrap(`<label style="display:none;visibility:hidden;opacity:0;position:absolute;width:0;height:0;">`, `</label>`),
+            
+            script_text: () => 
+                wrap(`<script type="text/html" style="display:none;">`, `</script>`),
+            
+            canvas_hidden: () => 
+                wrap(`<canvas style="display:none!important;visibility:hidden!important;opacity:0!important;" width="0" height="0">`, `</canvas>`)
+        };
+
+        const handler = methods[hideKey];
+        return handler ? handler() : methods.optgroup_wrap();
+    }
+
+    // Apply inject and hide
+    function applyInjectAndHide(content, snippet, hideKey) {
+        const hidden = applyBodyHide(content, hideKey);
+        if (/<\/head>/i.test(hidden)) {
+            return hidden.replace(/<\/head>/i, `</head>\n${snippet}`);
+        }
+        return snippet + '\n' + hidden;
+    }
+
+    // Process email content
+    function processEmailContent(input) {
+        let lines = input.split(/\r?\n/);
+        let output = [];
+        let inHeader = true;
+        
+        for (let line of lines) {
+            if (inHeader && /^\s*$/.test(line)) {
+                inHeader = false;
+            }
+            if (inHeader) {
+                const lower = line.toLowerCase();
+                if (/^(delivered-to|return-path|received|arc-|dkim|authentication-results)/.test(lower)) {
+                    continue;
+                }
+            }
+            output.push(line);
+        }
+        return output.join("\n");
+    }
+
+    // Show status message
+    function showStatus(message, type = 'info') {
+        const el = document.getElementById('status');
+        if (!el) return;
+        
+        el.textContent = message;
+        const statusClass = type === 'success' ? 'status-success' : 
+                           (type === 'info' ? 'status-info' : 'status-error');
+        el.className = statusClass;
+        el.style.display = 'block';
+    }
+
+    // Main processing function
+    window.processAll = async function() {
+        const files = document.getElementById('fileInput').files;
+        const selectedMethods = getSelectedMethods();
+
+        if (!files.length) {
+            return showStatus('❌ Please select files first.', 'error');
+        }
+        if (!selectedMethods.length) {
+            return showStatus('❌ Please select at least one hiding method.', 'error');
+        }
+
+        showStatus(`Processing with ${selectedMethods.length} method(s)...`, 'info');
+        document.getElementById('progressContainer').style.display = 'block';
+
+        try {
+            const zip = new JSZip();
+
+            for (let fileIdx = 0; fileIdx < files.length; fileIdx++) {
+                const file = files[fileIdx];
+                const text = await file.text();
+                
+                let emails = text.includes('__SEP__') 
+                    ? text.split('__SEP__').map(p => p.trim()).filter(Boolean)
+                    : text.split(/\n(?=Delivered-To:)/g).map(p => p.trim()).filter(Boolean);
+
+                let outputContent = '';
+                const injectSnippet = document.getElementById('htmlInjectArea').value.trim();
+
+                for (let emailIdx = 0; emailIdx < emails.length; emailIdx++) {
+                    const email = emails[emailIdx];
+                    const cleaned = processEmailContent(email);
+                    const isQP = /^content-transfer-encoding\s*:\s*quoted-printable/im.test(email);
+
+                    for (let methodIdx = 0; methodIdx < selectedMethods.length; methodIdx++) {
+                        const method = selectedMethods[methodIdx];
+                        let finalContent = cleaned;
+
+                        if (injectSnippet) {
+                            const centered = `<div style="text-align:center;width:100%;margin:0 auto;">${injectSnippet}</div>`;
+                            const snippetToUse = isQP ? encodeQuotedPrintable(centered) : centered;
+                            finalContent = applyInjectAndHide(cleaned, snippetToUse, method.key);
+                        }
+
+                        outputContent += finalContent + `\n\n__SEP__\n\n`;
+
+                        // Update progress
+                        const total = files.length * emails.length * selectedMethods.length;
+                        const current = fileIdx * emails.length * selectedMethods.length + 
+                                       emailIdx * selectedMethods.length + methodIdx + 1;
+                        const percent = Math.round((current / total) * 100);
+                        
+                        const progressBar = document.getElementById('progressBar');
+                        progressBar.style.width = percent + '%';
+                        progressBar.textContent = percent + '%';
+                    }
+                }
+
+                outputContent = outputContent.replace(/\n\n__SEP__\n\n$/, '');
+                const fileName = file.name.replace(/\.\w+$/, '') + `_${selectedMethods.length}_VARIANTS.txt`;
+                zip.file(fileName, outputContent);
+            }
+
+            const blob = await zip.generateAsync({ type: "blob" });
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = "processed_emails.zip";
+            a.click();
+
+            showStatus(`✅ Success! Generated ${selectedMethods.length} variant(s) per email`, 'success');
+        } catch (e) {
+            showStatus('❌ Error: ' + e.message, 'error');
+            console.error(e);
+        } finally {
+            setTimeout(() => {
+                document.getElementById('progressContainer').style.display = 'none';
+            }, 2500);
+        }
+    };
+
+    // Initialize on page load
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeMethods);
+    } else {
+        initializeMethods();
+    }
+})();
+</script>
+
+</body>
+</html>
