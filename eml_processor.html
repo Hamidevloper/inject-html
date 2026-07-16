@@ -85,13 +85,7 @@
         ALL_METHODS.forEach((method, idx) => {
             const card = document.createElement('div');
             card.className = 'method-card';
-            card.innerHTML = `
-                <label>
-                    <input type="checkbox" class="method-check" value="${method.key}" ${idx < 2 ? 'checked' : ''}>
-                    <strong>${method.name}</strong>
-                </label>
-                <div class="method-desc">${method.description}</div>
-            `;
+            card.innerHTML = '<label><input type="checkbox" class="method-check" value="' + method.key + '" ' + (idx < 2 ? 'checked' : '') + '><strong>' + method.name + '</strong></label><div class="method-desc">' + method.description + '</div>';
             grid.appendChild(card);
         });
     }
@@ -105,9 +99,18 @@
     }
 
     function getSelectedMethods() {
-        return Array.from(document.querySelectorAll('.method-check:checked'))
-            .map(cb => ALL_METHODS.find(m => m.key === cb.value))
-            .filter(Boolean);
+        const checkboxes = document.querySelectorAll('.method-check:checked');
+        const result = [];
+        for (let i = 0; i < checkboxes.length; i++) {
+            const cb = checkboxes[i];
+            for (let j = 0; j < ALL_METHODS.length; j++) {
+                if (ALL_METHODS[j].key === cb.value) {
+                    result.push(ALL_METHODS[j]);
+                    break;
+                }
+            }
+        }
+        return result;
     }
 
     function encodeQuotedPrintable(str) {
@@ -133,7 +136,7 @@
 
         function wrap(open, close) {
             if (bodyRx.test(content)) {
-                return content.replace(bodyRx, (_, bOpen, inner, bClose) => {
+                return content.replace(bodyRx, function(match, bOpen, inner, bClose) {
                     return bOpen + '\n' + open + inner + close + '\n' + bClose;
                 });
             }
@@ -153,7 +156,7 @@
         if (hideKey === 'svg_foreign') return wrap('<svg style="display:none!important;" viewBox="0 0 0 0"><foreignObject>', '</foreignObject></svg>');
         if (hideKey === 'style_overflow') return wrap('<div style="overflow:hidden;width:0;height:0;max-width:0;max-height:0;clip:rect(0,0,0,0);position:absolute;">', '</div>');
         if (hideKey === 'label_empty') return wrap('<label style="display:none;visibility:hidden;opacity:0;position:absolute;width:0;height:0;">', '</label>');
-        if (hideKey === 'script_text') return wrap('<script type="text/html" style="display:none;">', '</script>');
+        if (hideKey === 'script_text') return wrap('<script type=\'text/html\' style=\'display:none;\'>', '</script>');
         if (hideKey === 'canvas_hidden') return wrap('<canvas style="display:none!important;visibility:hidden!important;opacity:0!important;" width="0" height="0">', '</canvas>');
         return wrap('<div style="margin:5px 0;"><optgroup label="">', '</optgroup></div>');
     }
